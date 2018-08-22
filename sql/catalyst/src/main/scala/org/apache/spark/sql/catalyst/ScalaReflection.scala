@@ -119,6 +119,10 @@ object ScalaReflection extends ScalaReflection {
     case _ => false
   }
 
+  def isValueClass(tpe: `Type`): Boolean = {
+    definedByConstructorParams(tpe) && tpe <:< localTypeOf[AnyVal]
+  }
+
   /**
    * Returns an expression that can be used to deserialize an input row to an object of type `T`
    * with a compatible schema.  Fields of the row will be extracted using UnresolvedAttributes
@@ -722,6 +726,9 @@ object ScalaReflection extends ScalaReflection {
       case t if t <:< definitions.ShortTpe => Schema(ShortType, nullable = false)
       case t if t <:< definitions.ByteTpe => Schema(ByteType, nullable = false)
       case t if t <:< definitions.BooleanTpe => Schema(BooleanType, nullable = false)
+      case t if isValueClass(t) =>
+        val (_, underlyingType) = getConstructorParameters(t).head
+        schemaFor(underlyingType)
       case t if definedByConstructorParams(t) =>
         val params = getConstructorParameters(t)
         Schema(StructType(
