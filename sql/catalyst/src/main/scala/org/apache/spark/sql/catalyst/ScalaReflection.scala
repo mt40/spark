@@ -367,6 +367,12 @@ object ScalaReflection extends ScalaReflection {
           dataType = ObjectType(udt.getClass))
         Invoke(obj, "deserialize", ObjectType(udt.userClass), getPath :: Nil)
 
+      case t if isValueClass(t) =>
+        val (_, underlyingType) = getConstructorParameters(t).head
+        val clsName = getClassNameFromType(underlyingType)
+        val newTypePath = s"""- Scala value class: "$clsName"""" +: walkedTypePath
+        deserializerFor(underlyingType, path, newTypePath)
+
       case t if definedByConstructorParams(t) =>
         val params = getConstructorParameters(t)
 

@@ -33,7 +33,19 @@ case class StringIntClass(a: String, b: Int)
 
 case class ComplexClass(a: Long, b: StringLongClass)
 
+object TestingValueClass {
+
+  case class IntWrapper(i: Int) extends AnyVal
+
+  case class StringWrapper(s: String) extends AnyVal
+
+  case class ValueContainer(a: String, b: IntWrapper)
+}
+
 class EncoderResolutionSuite extends PlanTest {
+
+  import TestingValueClass._
+
   private val str = UTF8String.fromString("hello")
 
   test("real type doesn't match encoder schema but they are compatible: product") {
@@ -148,6 +160,19 @@ class EncoderResolutionSuite extends PlanTest {
          |You can either add an explicit cast to the input data or choose a higher precision type
        """.stripMargin.trim + " of the field in the target object")
   }
+
+  test("value class should match with underlying type") {
+    val encoder = ExpressionEncoder[IntWrapper]
+    encoder.resolveAndBind().fromRow(InternalRow(1))
+  }
+
+  test("value class should match with underlying type: nested") {
+    val encoder = ExpressionEncoder[ValueContainer]
+    encoder.resolveAndBind().fromRow(InternalRow(str, 1))
+  }
+
+  castSuccess[Long, StringWrapper]
+  castFail[Long, IntWrapper]
 
   // test for leaf types
   castSuccess[Int, Long]
