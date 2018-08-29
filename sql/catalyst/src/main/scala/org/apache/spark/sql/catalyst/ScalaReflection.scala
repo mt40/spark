@@ -369,8 +369,10 @@ object ScalaReflection extends ScalaReflection {
 
       case t if isValueClass(t) =>
         val (_, underlyingType) = getConstructorParameters(t).head
-        val clsName = getClassNameFromType(underlyingType)
-        val newTypePath = s"""- Scala value class: "$clsName"""" +: walkedTypePath
+        val clsName = t.typeSymbol.asClass.fullName
+        val underlyingClsName = getClassNameFromType(underlyingType)
+        val newTypePath = s"""- Scala value class: $clsName($underlyingClsName)""" +:
+          walkedTypePath
         deserializerFor(underlyingType, path, newTypePath)
 
       case t if definedByConstructorParams(t) =>
@@ -591,6 +593,26 @@ object ScalaReflection extends ScalaReflection {
           Nil,
           dataType = ObjectType(udt.getClass))
         Invoke(obj, "serialize", udt, inputObject :: Nil)
+
+      case t if isValueClass(t) =>
+//        val TypeRef(_, _, Seq(optType)) = t
+//        val className = getClassNameFromType(optType)
+//        val newPath = s"""- option value class: "$className"""" +: walkedTypePath
+//        val unwrapped = UnwrapOption(dataTypeFor(optType), inputObject)
+//        serializerFor(unwrapped, optType, newPath)
+
+//        val (_, underlyingType) = getConstructorParameters(t).head
+//        val clsName = t.typeSymbol.asClass.fullName
+//        val underlyingClsName = getClassNameFromType(underlyingType)
+//        val newTypePath = s"""- Scala value class: $clsName($underlyingClsName)""" +:
+//          walkedTypePath
+//        deserializerFor(underlyingType, path, newTypePath)
+
+        val (_, underlyingType) = getConstructorParameters(t).head
+        val clsName = t.typeSymbol.asClass.fullName
+        val underlyingClsName = getClassNameFromType(underlyingType)
+        val newPath = s"""- Scala value class: $clsName($underlyingClsName)""" +: walkedTypePath
+        serializerFor(inputObject, underlyingType, newPath)
 
       case t if definedByConstructorParams(t) =>
         val params = getConstructorParameters(t)

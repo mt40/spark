@@ -33,18 +33,19 @@ case class StringIntClass(a: String, b: Int)
 
 case class ComplexClass(a: Long, b: StringLongClass)
 
-object TestingValueClass {
-
-  case class IntWrapper(i: Int) extends AnyVal
-
-  case class StringWrapper(s: String) extends AnyVal
-
-  case class ValueContainer(a: String, b: IntWrapper)
-}
+// WIP
+// object TestingValueClass {
+//
+//  case class IntWrapper(i: Int) extends AnyVal
+//
+//  case class StringWrapper(s: String) extends AnyVal
+//
+//  case class ValueContainer(a: String, b: IntWrapper)
+// }
 
 class EncoderResolutionSuite extends PlanTest {
 
-  import TestingValueClass._
+//  import TestingValueClass._
 
   private val str = UTF8String.fromString("hello")
 

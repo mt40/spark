@@ -111,10 +111,18 @@ object ReferenceValueClass {
   case class Container(data: Int)
 }
 
+case class IntWrapper(i: Int) extends AnyVal
+case class StringWrapper(s: String) extends AnyVal
+case class ValueContainer(a: String, b: IntWrapper)
+
 class ExpressionEncoderSuite extends PlanTest with AnalysisTest {
   OuterScopes.addOuterScope(this)
 
   implicit def encoder[T : TypeTag]: ExpressionEncoder[T] = ExpressionEncoder()
+
+  productTest(IntWrapper(1), "value class int")
+  productTest(StringWrapper("a"), "value class string")
+  productTest(ValueContainer("a", IntWrapper(2)), "value class nested")
 
   // test flat encoders
   encodeDecodeTest(false, "primitive boolean")
@@ -297,6 +305,7 @@ class ExpressionEncoderSuite extends PlanTest with AnalysisTest {
   encodeDecodeTest(
     PrimitiveValueClass(42), "primitive value class")
 
+  // WIP: what's this
   encodeDecodeTest(
     ReferenceValueClass(ReferenceValueClass.Container(1)), "reference value class")
 
