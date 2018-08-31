@@ -463,11 +463,6 @@ object ScalaReflection extends ScalaReflection {
       tpe: `Type`,
       walkedTypePath: Seq[String]): Expression = ScalaReflectionLock.synchronized {
 
-    // scalastyle:off println
-//    println()
-//    println(s"-- tpe: $tpe")
-//    println(s"-- input obj: $inputObject, ${inputObject.dataType}")
-
     def toCatalystArray(input: Expression, elementType: `Type`): Expression = {
       dataTypeFor(elementType) match {
         case dt: ObjectType =>
@@ -618,13 +613,11 @@ object ScalaReflection extends ScalaReflection {
 
       case t if isValueClass(t) =>
         val (name, underlyingType) = getConstructorParameters(t).head
-        val clsName = t.typeSymbol.asClass.fullName
         val underlyingClsName = getClassNameFromType(underlyingType)
+        val clsName = t.typeSymbol.asClass.fullName
         val newPath = s"""- Scala value class: $clsName($underlyingClsName)""" +: walkedTypePath
         val getArg = Invoke(inputObject, name, dataTypeFor(underlyingType))
-        val rs = serializerFor(getArg, underlyingType, newPath)
-//        println(s"-- serializer for $t: ${rs.treeString}")
-        rs
+        serializerFor(getArg, underlyingType, newPath)
 
       case t if definedByConstructorParams(t) =>
         val params = getConstructorParameters(t)
@@ -634,10 +627,9 @@ object ScalaReflection extends ScalaReflection {
               "cannot be used as field name\n" + walkedTypePath.mkString("\n"))
           }
 
-          // WIP
+          // as a field, value class is represented by its underlying type
           val trueFieldType =
             if (isValueClass(fieldType)) getUnderlyingTypeOf(fieldType) else fieldType
-//          println(s"-- TRUE field type: $trueFieldType")
 
           val fieldValue = Invoke(inputObject, fieldName, dataTypeFor(trueFieldType))
 
