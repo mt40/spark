@@ -375,12 +375,12 @@ object ScalaReflection extends ScalaReflection {
           dataType = ObjectType(udt.getClass))
         Invoke(obj, "deserialize", ObjectType(udt.userClass), getPath :: Nil)
 
-      // TODO: nested value class is treated as its underlying type
-      // TODO: top level value class must be treated as a product (don't know why???)
       case t if isValueClass(t) =>
-        val (_, underlyingType) = getConstructorParameters(t).head
-        val clsName = t.typeSymbol.asClass.fullName
+        // nested value class is treated as its underlying type
+        // top level value class must be treated as a product
+        val underlyingType = getUnderlyingTypeOf(t)
         val underlyingClsName = getClassNameFromType(underlyingType)
+        val clsName = t.typeSymbol.asClass.fullName
         val newTypePath = s"""- Scala value class: $clsName($underlyingClsName)""" +:
           walkedTypePath
 
@@ -772,9 +772,7 @@ object ScalaReflection extends ScalaReflection {
       case t if t <:< definitions.ShortTpe => Schema(ShortType, nullable = false)
       case t if t <:< definitions.ByteTpe => Schema(ByteType, nullable = false)
       case t if t <:< definitions.BooleanTpe => Schema(BooleanType, nullable = false)
-      case t if isValueClass(t) =>
-        val (_, underlyingType) = getConstructorParameters(t).head
-        schemaFor(underlyingType)
+      case t if isValueClass(t) => schemaFor(getUnderlyingTypeOf(t))
       case t if definedByConstructorParams(t) =>
         val params = getConstructorParameters(t)
         Schema(StructType(
