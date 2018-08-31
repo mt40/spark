@@ -111,6 +111,10 @@ object ReferenceValueClass {
   case class Container(data: Int)
 }
 
+case class StringWrapper(s: String) extends AnyVal
+case class ValueContainer(a: Int, b: StringWrapper)
+case class ComplexValueClassContainer(a: Int, b: ValueContainer)
+
 class ExpressionEncoderSuite extends PlanTest with AnalysisTest {
   OuterScopes.addOuterScope(this)
 
@@ -294,11 +298,16 @@ class ExpressionEncoderSuite extends PlanTest with AnalysisTest {
     ExpressionEncoder.tuple(intEnc, ExpressionEncoder.tuple(intEnc, longEnc))
   }
 
+  // test for Scala value class
   encodeDecodeTest(
     PrimitiveValueClass(42), "primitive value class")
-
   encodeDecodeTest(
     ReferenceValueClass(ReferenceValueClass.Container(1)), "reference value class")
+  encodeDecodeTest(StringWrapper("a"), "value class string")
+  encodeDecodeTest(ValueContainer(1, StringWrapper("b")), "value class nested")
+  encodeDecodeTest(
+    ComplexValueClassContainer(1, ValueContainer(2, StringWrapper("b"))),
+    "value class complex")
 
   productTest(("UDT", new ExamplePoint(0.1, 0.2)))
 

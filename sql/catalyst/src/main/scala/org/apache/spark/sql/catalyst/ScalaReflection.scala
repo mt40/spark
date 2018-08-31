@@ -119,6 +119,16 @@ object ScalaReflection extends ScalaReflection {
     case _ => false
   }
 
+  def isValueClass(tpe: `Type`): Boolean = {
+    definedByConstructorParams(tpe) && tpe <:< localTypeOf[AnyVal]
+  }
+
+  /** Returns the underlying type of value class `cls`. */
+  def getUnderlyingTypeOf(cls: `Type`): `Type` = {
+    val (_, underlyingType) = getConstructorParameters(cls).head
+    underlyingType
+  }
+
   /**
    * Returns an expression that can be used to deserialize an input row to an object of type `T`
    * with a compatible schema.  Fields of the row will be extracted using UnresolvedAttributes
@@ -363,6 +373,23 @@ object ScalaReflection extends ScalaReflection {
           dataType = ObjectType(udt.getClass))
         Invoke(obj, "deserialize", ObjectType(udt.userClass), getPath :: Nil)
 
+      case t if isValueClass(t) =>
+        // nested value class is treated as its underlying type
+        // top level value class must be treated as a product
+        val underlyingType = getUnderlyingTypeOf(t)
+        val underlyingClsName = getClassNameFromType(underlyingType)
+        val clsName = t.typeSymbol.asClass.fullName
+        val newTypePath = s"""- Scala value class: $clsName($underlyingClsName)""" +:
+          walkedTypePath
+
+        val arg = deserializerFor(underlyingType, path, newTypePath)
+        if (path.isDefined) {
+          arg
+        } else {
+          val cls = getClassFromType(t)
+          NewInstance(cls, Seq(arg), ObjectType(cls), propagateNull = false)
+        }
+
       case t if definedByConstructorParams(t) =>
         val params = getConstructorParameters(t)
 
@@ -582,6 +609,14 @@ object ScalaReflection extends ScalaReflection {
           dataType = ObjectType(udt.getClass))
         Invoke(obj, "serialize", udt, inputObject :: Nil)
 
+      case t if isValueClass(t) =>
+        val (name, underlyingType) = getConstructorParameters(t).head
+        val underlyingClsName = getClassNameFromType(underlyingType)
+        val clsName = t.typeSymbol.asClass.fullName
+        val newPath = s"""- Scala value class: $clsName($underlyingClsName)""" +: walkedTypePath
+        val getArg = Invoke(inputObject, name, dataTypeFor(underlyingType))
+        serializerFor(getArg, underlyingType, newPath)
+
       case t if definedByConstructorParams(t) =>
         val params = getConstructorParameters(t)
         val nonNullOutput = CreateNamedStruct(params.flatMap { case (fieldName, fieldType) =>
@@ -590,10 +625,15 @@ object ScalaReflection extends ScalaReflection {
               "cannot be used as field name\n" + walkedTypePath.mkString("\n"))
           }
 
-          val fieldValue = Invoke(inputObject, fieldName, dataTypeFor(fieldType))
-          val clsName = getClassNameFromType(fieldType)
+          // as a field, value class is represented by its underlying type
+          val trueFieldType =
+            if (isValueClass(fieldType)) getUnderlyingTypeOf(fieldType) else fieldType
+
+          val fieldValue = Invoke(inputObject, fieldName, dataTypeFor(trueFieldType))
+
+          val clsName = getClassNameFromType(trueFieldType)
           val newPath = s"""- field (class: "$clsName", name: "$fieldName")""" +: walkedTypePath
-          expressions.Literal(fieldName) :: serializerFor(fieldValue, fieldType, newPath) :: Nil
+          expressions.Literal(fieldName) :: serializerFor(fieldValue, trueFieldType, newPath) :: Nil
         })
         val nullOutput = expressions.Literal.create(null, nonNullOutput.dataType)
         expressions.If(IsNull(inputObject), nullOutput, nonNullOutput)
@@ -722,6 +762,7 @@ object ScalaReflection extends ScalaReflection {
       case t if t <:< definitions.ShortTpe => Schema(ShortType, nullable = false)
       case t if t <:< definitions.ByteTpe => Schema(ByteType, nullable = false)
       case t if t <:< definitions.BooleanTpe => Schema(BooleanType, nullable = false)
+      case t if isValueClass(t) => schemaFor(getUnderlyingTypeOf(t))
       case t if definedByConstructorParams(t) =>
         val params = getConstructorParameters(t)
         Schema(StructType(
