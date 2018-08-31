@@ -164,12 +164,13 @@ class EncoderResolutionSuite extends PlanTest {
 
   test("value class should match with underlying type") {
     val encoder = ExpressionEncoder[IntWrapper]
-    encoder.resolveAndBind().fromRow(InternalRow(1))
+    val t = encoder.resolveAndBind().fromRow(InternalRow(1))
+    println(t)
   }
 
   test("value class should match with underlying type: nested") {
     val encoder = ExpressionEncoder[ValueContainer]
-    encoder.resolveAndBind().fromRow(InternalRow(str, 1))
+    println(encoder.resolveAndBind().fromRow(InternalRow(str, 1)))
   }
 
   castSuccess[Long, StringWrapper]

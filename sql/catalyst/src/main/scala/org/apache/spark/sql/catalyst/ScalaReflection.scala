@@ -74,6 +74,8 @@ object ScalaReflection extends ScalaReflection {
       case t if t <:< localTypeOf[Array[Byte]] => BinaryType
       case t if t <:< localTypeOf[CalendarInterval] => CalendarIntervalType
       case t if t <:< localTypeOf[Decimal] => DecimalType.SYSTEM_DEFAULT
+      // WIP
+//      case t if isValueClass(t) => dataTypeFor(getUnderlyingTypeOf(t))
       case _ =>
         val className = getClassNameFromType(tpe)
         className match {
@@ -121,6 +123,12 @@ object ScalaReflection extends ScalaReflection {
 
   def isValueClass(tpe: `Type`): Boolean = {
     definedByConstructorParams(tpe) && tpe <:< localTypeOf[AnyVal]
+  }
+
+  // TODO: add doc
+  def getUnderlyingTypeOf(valueCls: `Type`): `Type` = {
+    val (_, underlyingType) = getConstructorParameters(valueCls).head
+    underlyingType
   }
 
   /**
@@ -367,13 +375,22 @@ object ScalaReflection extends ScalaReflection {
           dataType = ObjectType(udt.getClass))
         Invoke(obj, "deserialize", ObjectType(udt.userClass), getPath :: Nil)
 
+      // TODO: nested value class is treated as its underlying type
+      // TODO: top level value class must be treated as a product (don't know why???)
       case t if isValueClass(t) =>
         val (_, underlyingType) = getConstructorParameters(t).head
         val clsName = t.typeSymbol.asClass.fullName
         val underlyingClsName = getClassNameFromType(underlyingType)
         val newTypePath = s"""- Scala value class: $clsName($underlyingClsName)""" +:
           walkedTypePath
-        deserializerFor(underlyingType, path, newTypePath)
+
+        val arg = deserializerFor(underlyingType, path, newTypePath)
+        if (path.isDefined) {
+          arg
+        } else {
+          val cls = getClassFromType(t)
+          NewInstance(cls, Seq(arg), ObjectType(cls), propagateNull = false)
+        }
 
       case t if definedByConstructorParams(t) =>
         val params = getConstructorParameters(t)
@@ -445,6 +462,11 @@ object ScalaReflection extends ScalaReflection {
       inputObject: Expression,
       tpe: `Type`,
       walkedTypePath: Seq[String]): Expression = ScalaReflectionLock.synchronized {
+
+    // scalastyle:off println
+//    println()
+//    println(s"-- tpe: $tpe")
+//    println(s"-- input obj: $inputObject, ${inputObject.dataType}")
 
     def toCatalystArray(input: Expression, elementType: `Type`): Expression = {
       dataTypeFor(elementType) match {
@@ -595,24 +617,14 @@ object ScalaReflection extends ScalaReflection {
         Invoke(obj, "serialize", udt, inputObject :: Nil)
 
       case t if isValueClass(t) =>
-//        val TypeRef(_, _, Seq(optType)) = t
-//        val className = getClassNameFromType(optType)
-//        val newPath = s"""- option value class: "$className"""" +: walkedTypePath
-//        val unwrapped = UnwrapOption(dataTypeFor(optType), inputObject)
-//        serializerFor(unwrapped, optType, newPath)
-
-//        val (_, underlyingType) = getConstructorParameters(t).head
-//        val clsName = t.typeSymbol.asClass.fullName
-//        val underlyingClsName = getClassNameFromType(underlyingType)
-//        val newTypePath = s"""- Scala value class: $clsName($underlyingClsName)""" +:
-//          walkedTypePath
-//        deserializerFor(underlyingType, path, newTypePath)
-
-        val (_, underlyingType) = getConstructorParameters(t).head
+        val (name, underlyingType) = getConstructorParameters(t).head
         val clsName = t.typeSymbol.asClass.fullName
         val underlyingClsName = getClassNameFromType(underlyingType)
         val newPath = s"""- Scala value class: $clsName($underlyingClsName)""" +: walkedTypePath
-        serializerFor(inputObject, underlyingType, newPath)
+        val getArg = Invoke(inputObject, name, dataTypeFor(underlyingType))
+        val rs = serializerFor(getArg, underlyingType, newPath)
+//        println(s"-- serializer for $t: ${rs.treeString}")
+        rs
 
       case t if definedByConstructorParams(t) =>
         val params = getConstructorParameters(t)
@@ -622,10 +634,16 @@ object ScalaReflection extends ScalaReflection {
               "cannot be used as field name\n" + walkedTypePath.mkString("\n"))
           }
 
-          val fieldValue = Invoke(inputObject, fieldName, dataTypeFor(fieldType))
-          val clsName = getClassNameFromType(fieldType)
+          // WIP
+          val trueFieldType =
+            if (isValueClass(fieldType)) getUnderlyingTypeOf(fieldType) else fieldType
+//          println(s"-- TRUE field type: $trueFieldType")
+
+          val fieldValue = Invoke(inputObject, fieldName, dataTypeFor(trueFieldType))
+
+          val clsName = getClassNameFromType(trueFieldType)
           val newPath = s"""- field (class: "$clsName", name: "$fieldName")""" +: walkedTypePath
-          expressions.Literal(fieldName) :: serializerFor(fieldValue, fieldType, newPath) :: Nil
+          expressions.Literal(fieldName) :: serializerFor(fieldValue, trueFieldType, newPath) :: Nil
         })
         val nullOutput = expressions.Literal.create(null, nonNullOutput.dataType)
         expressions.If(IsNull(inputObject), nullOutput, nonNullOutput)

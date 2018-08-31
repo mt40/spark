@@ -71,6 +71,10 @@ object ExpressionEncoder {
     val serializer = ScalaReflection.serializerFor[T](nullSafeInput)
     val deserializer = ScalaReflection.deserializerFor[T]
 
+    // WIP
+//    println(s"-- serializer: ${serializer.treeString}")
+//    println(s"-- deserializer: ${deserializer.treeString}")
+
     val schema = ScalaReflection.schemaFor[T] match {
       case ScalaReflection.Schema(s: StructType, _) => s
       case ScalaReflection.Schema(dt, nullable) => new StructType().add("value", dt, nullable)

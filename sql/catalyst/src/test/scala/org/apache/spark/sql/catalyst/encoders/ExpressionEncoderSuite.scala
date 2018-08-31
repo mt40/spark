@@ -120,9 +120,10 @@ class ExpressionEncoderSuite extends PlanTest with AnalysisTest {
 
   implicit def encoder[T : TypeTag]: ExpressionEncoder[T] = ExpressionEncoder()
 
-  productTest(IntWrapper(1), "value class int")
-  productTest(StringWrapper("a"), "value class string")
-  productTest(ValueContainer("a", IntWrapper(2)), "value class nested")
+  encodeDecodeTest(1, "Scala int")
+  encodeDecodeTest(IntWrapper(1), "value class int")
+  encodeDecodeTest(StringWrapper("a"), "value class string")
+  encodeDecodeTest(ValueContainer("a", IntWrapper(2)), "value class nested")
 
   // test flat encoders
   encodeDecodeTest(false, "primitive boolean")
@@ -305,7 +306,6 @@ class ExpressionEncoderSuite extends PlanTest with AnalysisTest {
   encodeDecodeTest(
     PrimitiveValueClass(42), "primitive value class")
 
-  // WIP: what's this
   encodeDecodeTest(
     ReferenceValueClass(ReferenceValueClass.Container(1)), "reference value class")
 
@@ -374,6 +374,11 @@ class ExpressionEncoderSuite extends PlanTest with AnalysisTest {
               |
             """.stripMargin, e)
       }
+
+//      // WIP
+//      println(s"convert from $input")
+//      println(s"to $row")
+//      println(s"convert back to $convertedBack")
 
       // Test the correct resolution of serialization / deserialization.
       val attr = AttributeReference("obj", encoder.deserializer.dataType)()
