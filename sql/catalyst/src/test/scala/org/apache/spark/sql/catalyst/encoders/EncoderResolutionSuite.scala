@@ -20,10 +20,10 @@ package org.apache.spark.sql.catalyst.encoders
 import scala.reflect.runtime.universe.TypeTag
 
 import org.apache.spark.sql.AnalysisException
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.plans.PlanTest
 import org.apache.spark.sql.catalyst.util.GenericArrayData
-import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
@@ -33,19 +33,7 @@ case class StringIntClass(a: String, b: Int)
 
 case class ComplexClass(a: Long, b: StringLongClass)
 
-// WIP
-// object TestingValueClass {
-//
-//  case class IntWrapper(i: Int) extends AnyVal
-//
-//  case class StringWrapper(s: String) extends AnyVal
-//
-//  case class ValueContainer(a: String, b: IntWrapper)
-// }
-
 class EncoderResolutionSuite extends PlanTest {
-
-//  import TestingValueClass._
 
   private val str = UTF8String.fromString("hello")
 
@@ -161,20 +149,6 @@ class EncoderResolutionSuite extends PlanTest {
          |You can either add an explicit cast to the input data or choose a higher precision type
        """.stripMargin.trim + " of the field in the target object")
   }
-
-  test("value class should match with underlying type") {
-    val encoder = ExpressionEncoder[IntWrapper]
-    val t = encoder.resolveAndBind().fromRow(InternalRow(1))
-    println(t)
-  }
-
-  test("value class should match with underlying type: nested") {
-    val encoder = ExpressionEncoder[ValueContainer]
-    println(encoder.resolveAndBind().fromRow(InternalRow(str, 1)))
-  }
-
-  castSuccess[Long, StringWrapper]
-  castFail[Long, IntWrapper]
 
   // test for leaf types
   castSuccess[Int, Long]

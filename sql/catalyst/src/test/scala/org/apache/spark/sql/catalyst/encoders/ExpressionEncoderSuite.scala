@@ -111,19 +111,14 @@ object ReferenceValueClass {
   case class Container(data: Int)
 }
 
-case class IntWrapper(i: Int) extends AnyVal
 case class StringWrapper(s: String) extends AnyVal
-case class ValueContainer(a: String, b: IntWrapper)
+case class ValueContainer(a: Int, b: StringWrapper)
+case class ComplexValueClassContainer(a: Int, b: ValueContainer)
 
 class ExpressionEncoderSuite extends PlanTest with AnalysisTest {
   OuterScopes.addOuterScope(this)
 
   implicit def encoder[T : TypeTag]: ExpressionEncoder[T] = ExpressionEncoder()
-
-  encodeDecodeTest(1, "Scala int")
-  encodeDecodeTest(IntWrapper(1), "value class int")
-  encodeDecodeTest(StringWrapper("a"), "value class string")
-  encodeDecodeTest(ValueContainer("a", IntWrapper(2)), "value class nested")
 
   // test flat encoders
   encodeDecodeTest(false, "primitive boolean")
@@ -303,11 +298,16 @@ class ExpressionEncoderSuite extends PlanTest with AnalysisTest {
     ExpressionEncoder.tuple(intEnc, ExpressionEncoder.tuple(intEnc, longEnc))
   }
 
+  // test for Scala value class
   encodeDecodeTest(
     PrimitiveValueClass(42), "primitive value class")
-
   encodeDecodeTest(
     ReferenceValueClass(ReferenceValueClass.Container(1)), "reference value class")
+  encodeDecodeTest(StringWrapper("a"), "value class string")
+  encodeDecodeTest(ValueContainer(1, StringWrapper("b")), "value class nested")
+  encodeDecodeTest(
+    ComplexValueClassContainer(1, ValueContainer(2, StringWrapper("b"))),
+    "value class complex")
 
   productTest(("UDT", new ExamplePoint(0.1, 0.2)))
 
